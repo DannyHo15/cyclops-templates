@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "App name and resource prefix",
+      "default": "full-app"
+    },
+    "replicas": {
+      "type": "integer",
+      "description": "Number of pod replicas",
+      "minimum": 1,
+      "default": 1
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Container image repository",
+          "default": "nginx"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Container image tag",
+          "default": "latest"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"],
+          "default": "IfNotPresent"
+        }
+      },
+      "required": ["repository", "tag"]
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+          "default": "ClusterIP"
+        },
+        "port": {
+          "type": "integer",
+          "default": 80
+        },
+        "targetPort": {
+          "type": "integer",
+          "default": 80
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "className": {
+          "type": "string",
+          "default": "traefik"
+        },
+        "host": {
+          "type": "string",
+          "default": "example.com"
+        },
+        "path": {
+          "type": "string",
+          "default": "/"
+        },
+        "tls": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "pvc": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "mountPath": {
+          "type": "string",
+          "default": "/data"
+        },
+        "size": {
+          "type": "string",
+          "default": "1Gi"
+        },
+        "storageClass": {
+          "type": "string",
+          "default": "local-path"
+        },
+        "existingClaim": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    }
+  },
+  "required": ["name", "replicas", "image"]
+}
