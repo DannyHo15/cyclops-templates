@@ -1,0 +1,17 @@
+{{- if and .Values.pvc.enabled (empty .Values.pvc.existingClaim) -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ printf "%s-pvc" .Values.name }}
+  labels:
+    app: {{ .Values.name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.pvc.storageClass }}
+  storageClassName: {{ .Values.pvc.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.pvc.size }}
+{{- end }}

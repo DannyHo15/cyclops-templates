@@ -1,0 +1,29 @@
+name: full-app
+replicas: 1
+
+image:
+  repository: nginx
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+ingress:
+  enabled: false
+  className: traefik
+  host: example.com
+  path: /
+  tls: false
+
+pvc:
+  enabled: false
+  mountPath: /data
+  size: 1Gi
+  storageClass: local-path
+  existingClaim: ""
+
+env: []
