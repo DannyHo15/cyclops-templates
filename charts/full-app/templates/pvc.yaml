@@ -1,4 +1,4 @@
-{{- if and .Values.pvc.enabled (empty .Values.pvc.existingClaim) -}}
+{{- if and .Values.pvc .Values.pvc.enabled (empty .Values.pvc.existingClaim) -}}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
