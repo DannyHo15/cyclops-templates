@@ -25,5 +25,13 @@ pvc:
   size: 1Gi
   storageClass: local-path
   existingClaim: ""
-
 env: []
+
+resources: {}
+
+probe:
+  enabled: false
+  path: /healthz
+  port: 8000
+
+imagePullSecrets: []
