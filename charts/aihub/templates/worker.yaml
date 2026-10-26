@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aihub-worker
+  labels:
+    {{- include "aihub.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aihub-worker
+  template:
+    metadata:
+      labels:
+        app: aihub-worker
+    spec:
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      initContainers:
+        - name: wait-for-migrations
+          image: "{{ .Values.image.apiRepository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-ec"]
+          args:
+            - |
+              while :; do
+                current="$(alembic current 2>/dev/null | awk '/\(head\)/ {print $1}' | sort | tr '\n' ' ')"
+                heads="$(alembic heads 2>/dev/null | awk '{print $1}' | sort | tr '\n' ' ')"
+                [ -n "$current" ] && [ "$current" = "$heads" ] && break
+                sleep 5
+              done
+          env:
+            - name: MIGRATOR_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: MIGRATOR_DATABASE_URL
+      containers:
+        - name: worker
+          image: "{{ .Values.image.apiRepository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "aihub.channels.worker"]
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          resources:
+            {{- toYaml .Values.resources.worker | nindent 12 }}

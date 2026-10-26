@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aihub-api
+  labels:
+    {{- include "aihub.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: aihub-api
+  template:
+    metadata:
+      labels:
+        app: aihub-api
+    spec:
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      initContainers:
+        - name: bootstrap
+          image: "{{ .Values.image.apiRepository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-ec"]
+          args:
+            - |
+              until pg_isready -h aihub-postgres -U postgres -d aihub; do sleep 2; done
+              if ! psql -h aihub-postgres -U postgres -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname = 'hub_app'" | grep -q 1; then
+                SQL="$(python -c 'import hub_core, os; print(os.path.join(os.path.dirname(hub_core.__file__), "sql", "bootstrap_roles.sql"))')"
+                psql -h aihub-postgres -U postgres -d postgres -v ON_ERROR_STOP=1 \
+                  -v migrator_password="$HUB_MIGRATOR_PASSWORD" \
+                  -v app_password="$HUB_APP_PASSWORD" \
+                  -v maintenance_password="$HUB_MAINTENANCE_PASSWORD" \
+                  -f "$SQL"
+              fi
+              psql -h aihub-postgres -U postgres -d aihub -v ON_ERROR_STOP=1 \
+                -c "CREATE EXTENSION IF NOT EXISTS vector"
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: POSTGRES_PASSWORD
+            - name: HUB_MIGRATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: HUB_MIGRATOR_PASSWORD
+            - name: HUB_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: HUB_APP_PASSWORD
+            - name: HUB_MAINTENANCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: HUB_MAINTENANCE_PASSWORD
+        - name: migrate
+          image: "{{ .Values.image.apiRepository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["alembic", "upgrade", "heads"]
+          env:
+            - name: MIGRATOR_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: MIGRATOR_DATABASE_URL
+      containers:
+        - name: api
+          image: "{{ .Values.image.apiRepository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uvicorn", "--host", "0.0.0.0", "--port", "8000", "--factory", "aihub.main:build_app"]
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          env:
+            - name: WIDGET_DIST_DIR
+              value: /app/widget-dist
+            - name: FORWARDED_ALLOW_IPS
+              value: "*"
+          resources:
+            {{- toYaml .Values.resources.api | nindent 12 }}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aihub-api
+  labels:
+    {{- include "aihub.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: aihub-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

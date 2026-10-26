@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["name", "existingSecret", "image", "imagePullSecrets", "ingress", "postgres", "redis", "backup", "resources"],
+  "properties": {
+    "name": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"},
+    "existingSecret": {"type": "string", "minLength": 1},
+    "image": {
+      "type": "object",
+      "required": ["apiRepository", "adminRepository", "tag", "pullPolicy"],
+      "properties": {
+        "apiRepository": {"type": "string", "minLength": 1},
+        "adminRepository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string", "pattern": "^sha-[A-Za-z0-9._-]+$"},
+        "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "imagePullSecrets": {"type": "array", "items": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}},
+    "ingress": {
+      "type": "object",
+      "required": ["className", "adminHost", "apiHost"],
+      "properties": {
+        "className": {"type": "string"},
+        "adminHost": {"type": "string"},
+        "apiHost": {"type": "string"}
+      }
+    },
+    "postgres": {
+      "type": "object",
+      "required": ["image", "storage", "storageClass"],
+      "properties": {
+        "image": {"type": "string"},
+        "storage": {"type": "string"},
+        "storageClass": {"type": "string"}
+      }
+    },
+    "redis": {"type": "object", "required": ["image"], "properties": {"image": {"type": "string"}}},
+    "backup": {
+      "type": "object",
+      "required": ["storage", "storageClass", "schedule"],
+      "properties": {
+        "storage": {"type": "string"},
+        "storageClass": {"type": "string"},
+        "schedule": {"type": "string"}
+      }
+    },
+    "resources": {"type": "object", "required": ["api", "worker", "admin", "postgres", "redis"]}
+  }
+}
