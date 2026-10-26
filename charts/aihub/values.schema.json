@@ -11,7 +11,7 @@
       "properties": {
         "apiRepository": {"type": "string", "minLength": 1},
         "adminRepository": {"type": "string", "minLength": 1},
-        "tag": {"type": "string", "pattern": "^sha-[A-Za-z0-9._-]+$"},
+        "tag": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
         "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
       }
     },

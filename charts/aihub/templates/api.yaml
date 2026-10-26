@@ -35,7 +35,9 @@ spec:
                   -f "$SQL"
               fi
               psql -h aihub-postgres -U postgres -d aihub -v ON_ERROR_STOP=1 \
-                -c "CREATE EXTENSION IF NOT EXISTS vector"
+                -c "CREATE EXTENSION IF NOT EXISTS vector" \
+                -c "ALTER DATABASE aihub OWNER TO hub_migrator" \
+                -c "ALTER SCHEMA public OWNER TO hub_migrator"
           env:
             - name: PGPASSWORD
               valueFrom:
