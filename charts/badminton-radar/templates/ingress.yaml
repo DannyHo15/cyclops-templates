@@ -1,0 +1,34 @@
+# One host: backend paths go to the API, everything else to Next.js (same origin, so the
+# session cookie and relative fetches just work).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "radar.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          {{- range list "/api" "/media" }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Values.name }}-api
+                port: {name: http}
+          {{- end }}
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: {{ .Values.name }}-api
+                port: {name: http}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.name }}-web
+                port: {name: http}

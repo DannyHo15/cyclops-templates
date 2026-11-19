@@ -1,0 +1,44 @@
+name: badminton-radar
+existingSecret: badminton-radar-secrets
+
+image:
+  apiRepository: ghcr.io/dannyho15/badminton-radar-api
+  webRepository: ghcr.io/dannyho15/badminton-radar-web
+  tag: sha-0000000
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ghcr-secret
+
+ingress:
+  className: traefik
+  host: radar.danny.io.vn
+
+postgres:
+  image: postgres:16-alpine
+  storage: 5Gi
+  storageClass: local-path
+
+# Media files + Playwright browser profiles, shared by api and worker (single node, so RWO works).
+data:
+  storage: 5Gi
+  storageClass: local-path
+
+backup:
+  storage: 5Gi
+  storageClass: local-path
+  schedule: "37 2 * * *"
+
+resources:
+  api:
+    requests: {cpu: 50m, memory: 192Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  worker:
+    requests: {cpu: 200m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
+  web:
+    requests: {cpu: 25m, memory: 96Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  postgres:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}-api
+  labels:
+    {{- include "radar.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}-api
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}-api
+    spec:
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      securityContext:
+        fsGroup: 1001
+      initContainers:
+        # Cyclops runs no Helm hooks, so migrations ride on the API pod. Fails (and is retried)
+        # until Postgres accepts connections. An empty APP_PASSWORD disables login, so refuse to
+        # start rather than serve the API unauthenticated.
+        - name: migrate
+          image: "{{ .Values.image.apiRepository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -ec
+            - |
+              [ -n "$APP_PASSWORD" ] || { echo "APP_PASSWORD is empty; refusing to start" >&2; exit 1; }
+              alembic upgrade head
+              python -m app.db.seed_catalog
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+      containers:
+        - name: api
+          image: "{{ .Values.image.apiRepository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8090
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          env:
+            - name: MEDIA_STORAGE_DIR
+              value: /data/media
+            - name: BROWSER_PROFILES_DIR
+              value: /data/profiles
+            - name: CORS_ORIGINS
+              value: "https://{{ .Values.ingress.host }}"
+          resources:
+            {{- toYaml .Values.resources.api | nindent 12 }}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.name }}-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-api
+  labels:
+    {{- include "radar.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: {{ .Values.name }}-api
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http

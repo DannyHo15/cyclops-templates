@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-postgres
+  labels:
+    {{- include "radar.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ .Values.name }}-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.name }}-postgres
+  labels:
+    {{- include "radar.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ .Values.name }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}-postgres
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: radar
+            - name: POSTGRES_DB
+              value: badminton_radar
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: POSTGRES_PASSWORD
+          resources:
+            {{- toYaml .Values.resources.postgres | nindent 12 }}
+          readinessProbe:
+            exec:
+              command: ["sh", "-ec", "pg_isready -U radar -d badminton_radar"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-ec", "pg_isready -U radar -d badminton_radar"]
+            periodSeconds: 15
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.postgres.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}
