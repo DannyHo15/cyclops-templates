@@ -20,8 +20,10 @@ spec:
                 name: {{ $.Values.name }}-api
                 port: {name: http}
           {{- end }}
+          # Prefix, not Exact: traefik ranks routers by rule length, and Path(`/health`) ties
+          # PathPrefix(`/`) at 15 chars, so the catch-all could win. PathPrefix(`/health`) is longer.
           - path: /health
-            pathType: Exact
+            pathType: Prefix
             backend:
               service:
                 name: {{ .Values.name }}-api
